@@ -13,7 +13,6 @@ lazy val server = (project in file("server")).settings(
   // triggers scalaJSPipeline when using compile or continuous compilation
   compile in Compile <<= (compile in Compile) dependsOn scalaJSPipeline,
   libraryDependencies ++= Seq(
-    jdbc,
     cache,
     ws,
     "com.vmunier" %% "scalajs-scripts" % "1.0.0",
@@ -21,7 +20,10 @@ lazy val server = (project in file("server")).settings(
     "org.webjars" % "bootstrap" % "3.3.7-1",
     "org.webjars" % "jquery" % "3.1.1-1",
     "org.scalatestplus.play" %% "scalatestplus-play" % "1.5.1" % Test,
-    "com.lihaoyi" %% "upickle" % "0.4.3"
+    "com.lihaoyi" %% "upickle" % "0.4.3",
+    "com.typesafe.play" %% "play-slick" % "2.0.0",
+    "com.typesafe.play" %% "play-slick-evolutions" % "1.1.0",
+    "mysql" % "mysql-connector-java" % "5.1.34"
   )
 ).enablePlugins(PlayScala).
   dependsOn(sharedJvm)

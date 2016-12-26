@@ -8,7 +8,6 @@ import shared.SocketMessage
   * Created by svloyso on 26.12.16.
   */
 class UserActor(name: String, out: ActorRef, room: ActorRef) extends Actor {
-  room ! ConnectMessage(name)
   def receive = {
     case raw: String =>
       val msg = read[SocketMessage](raw)
@@ -19,6 +18,10 @@ class UserActor(name: String, out: ActorRef, room: ActorRef) extends Actor {
       out ! write(SocketMessage("", user + " has joined to room"))
     case DisconnectedMessage(user) =>
       out ! write(SocketMessage("", user + " has leaved room"))
+  }
+
+  override def preStart = {
+    room ! ConnectMessage(name)
   }
 
   override def postStop = {
