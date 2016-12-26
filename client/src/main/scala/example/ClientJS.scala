@@ -1,6 +1,6 @@
 package example
 
-import shared.SocketMessage
+import shared._
 
 import scala.scalajs.js
 import org.scalajs.dom
@@ -16,16 +16,16 @@ object ClientJS extends js.JSApp {
   var socket: Option[dom.WebSocket] = None
   var user: String = ""
   var room: String = ""
+  val body = $("#content")
 
 
   def setupUI(): Unit = {
-    val body = $("body")
     body.append(signInPanel.render)
     body.append(chatPanel.render)
     $("#message").keypress((e: dom.KeyboardEvent) => {
       if(!e.shiftKey && e.keyCode == 13) {
         e.preventDefault()
-        socket.map{_.send(write(SocketMessage(user, $("#message").value().toString)))}
+        socket.foreach{_.send(write(ClientMessage(user, $("#message").value().toString)))}
         $("#message").value("")
       }
     })
@@ -33,17 +33,29 @@ object ClientJS extends js.JSApp {
 
 
   def receive(e: dom.MessageEvent) = {
-    val msg: SocketMessage = read[SocketMessage](e.data.toString)
-    val message = msg.text
-    val username = msg.user
-    val msgElem = dom.document.getElementById("messages")
-
-    msgElem.appendChild(postMessage(message, username).render)
-    if(msgElem.childNodes.length >= maxMessages){
-      msgElem.removeChild(msgElem.firstChild)
+    val msgStr = e.data.toString
+    dom.console.log("Got an message: " + msgStr)
+    val msg: ClientServerMessage = read[ClientServerMessage](msgStr)
+    val msgElem = dom.document.getElementById ("messages")
+    msg match {
+      case ServerMessage(username, text, dt) =>
+        msgElem.appendChild (postMessage (text, username, dt).render)
+      case JoinMessage(username, dt) =>
+        msgElem.appendChild (postMessage (s"$username has joined to chat", "*", dt).render)
+        $("#users").append(
+          li(id:=username)(username).render
+        )
+      case LeaveMessage(username, dt) =>
+        msgElem.appendChild (postMessage (s"$username left", "*", dt).render)
+        $(s"#$username").remove()
+      case UserlistMessage(users) =>
+        users.foreach{u => $("#users").append(li(id:=u)(u).render)}
+      case other => dom.console.error("Got a bad message: " + other.toString)
     }
-    msgElem.scrollTop = msgElem.scrollHeight
-  }
+    if (msgElem.childNodes.length >= maxMessages) {
+      msgElem.removeChild (msgElem.firstChild)
+    }
+    msgElem.scrollTop = msgElem.scrollHeight}
 
   def signInPanel = div(id:="signInPanel"){
     form(`class`:="form-inline")(
@@ -102,14 +114,21 @@ object ClientJS extends js.JSApp {
     )
   )
 
-  def postMessage(msg: String, username: String) = {
+  def postMessage(msg: String, username: String, datetime: String) = {
     div(`class`:=s"row message-box${if(username == user)"-me" else ""}")(
       div(`class`:="col-md-2")(
-        div(`class`:="message-icon")(
+        div(`class`:="message-username")(
           div(username)
         )
       ),
-      div(`class`:="col-md-10")(raw(msg))
+      div(`class`:="col-md-10")(
+        div(`class`:="row")(
+          div(`class`:="message-datetime")(
+            div(datetime)
+          ),
+          raw(msg)
+        )
+      )
     )
   }
 

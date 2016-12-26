@@ -5,44 +5,39 @@ import dao.MessagesDAO
 import models.Message
 import org.joda.time.DateTime
 import play.api.Logger
-import shared.SocketMessage
-import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
 import scala.collection.mutable
 
 /**
   * Created by svloyso on 26.12.16.
   */
 class RoomActor (room: String, messages: MessagesDAO)  extends Actor {
-  var listeners: mutable.MutableList[ActorRef] = new mutable.MutableList()
+  var listeners: mutable.HashMap[String, ActorRef] = new mutable.HashMap()
   def receive = {
     case ConnectMessage(name) =>
       Logger.info(s"Got an connect message from $name")
       val s = sender()
-      messages.lastTen(room).map(_.map{m =>
-        Logger.info(s"History: [${m.user}] ${m.text}")
-        s ! RoomMessage(m.user, m.text)
+      val now = DateTime.now.getMillis
+      messages.lastTen(room).foreach(_.foreach{m =>
+        s ! OutcomingMessage(m.user, m.text, m.dateTime)
       })
-      listeners.map {out =>
-        out ! ConnectedMessage(name)
+      listeners.values.foreach { out =>
+        out ! ConnectedMessage(name, now)
       }
-      listeners += sender()
-    case RoomMessage(user, msg) =>
+      listeners(name) = s
+      s ! ListOfUserMessage(listeners.keys.toSeq)
+    case IncomingMessage(user, msg) =>
       Logger.info(s"[$room][$user] $msg")
-      if(msg == "list") {
-        messages.all().map(s => Logger.info("Messages in database: " + s.size))
-        messages.allInRoom(room).map(s => Logger.info("Messages in room: " + s.size))
+      val now = DateTime.now.getMillis
+      listeners.values.foreach {out =>
+        out ! OutcomingMessage(user, msg, now)
       }
-      listeners.map {out =>
-        out ! RoomMessage(user, msg)
-      }
-      messages.insert(Message(Some(0), room, user, msg, DateTime.now.getMillis))
+      messages.insert(Message(Some(0), room, user, msg, now))
     case DisconnectMessage(name) =>
       Logger.info(s"Got an disconnect message from $name")
-      listeners = listeners diff Seq(sender())
-      listeners.map {out =>
-        out ! DisconnectedMessage(name)
+      listeners.remove(name)
+      listeners.values.foreach {out =>
+        out ! DisconnectedMessage(name, DateTime.now.getMillis)
       }
   }
 }
@@ -52,9 +47,12 @@ object RoomActor {
 }
 
 
-sealed trait InnerMessage
-case class RoomMessage(user: String, msg: String)
-case class ConnectMessage(name: String)
-case class ConnectedMessage(name: String)
-case class DisconnectMessage(name: String)
-case class DisconnectedMessage(name: String)
+sealed trait InMessage
+sealed trait OutMessage
+case class IncomingMessage(user: String, msg: String) extends InMessage
+case class OutcomingMessage(user: String, msg: String, dt: Long) extends OutMessage
+case class ConnectMessage(name: String) extends InMessage
+case class ConnectedMessage(name: String, dt: Long) extends OutMessage
+case class DisconnectMessage(name: String) extends InMessage
+case class DisconnectedMessage(name: String, dt: Long) extends OutMessage
+case class ListOfUserMessage(users: Seq[String]) extends OutMessage

@@ -1,0 +1,36 @@
+
+#messages {
+    max-height: 250px;
+    overflow-y:auto;
+    overflow-x:hidden;
+}
+
+div.message-box{
+    padding: 3px 0px;
+}
+
+div.message-box-me{
+    padding: 3px 0px;
+    background-color: #b6e2ff;
+}
+
+div.message-datetime{
+    font-weight: lighter;
+    color: #999999;
+    font-size: small;
+    font-style: italic;
+}
+
+div.message-username{
+    font-weight: bold;
+    text-align: center;
+    padding: 2px 5px;
+}
+
+textarea.message{
+    resize:vertical;
+    width:100%;
+}
+
+
+
